@@ -20,7 +20,7 @@ import (
 // A Dialer is a means to establish a connection.
 type Dialer interface {
 	// Dial connects to the given address via the proxy.
-	Dial(network, addr string) (c net.Conn, err error)
+	Dial(network, addr string) (net.Conn, error)
 }
 
 // Auth contains authentication parameters that specific Dialers may require.

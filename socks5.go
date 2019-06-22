@@ -5,6 +5,7 @@
 package netproxy
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -63,6 +64,23 @@ var socks5Errors = []string{
 	"address type not supported",
 }
 
+// ------------------------------------------------------------------
+
+// DialContext - golang.org/x/net/proxy need to add DialContext
+func (s *socks5) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	if ctx != nil {
+		if deadline, ok := ctx.Deadline(); ok {
+			s.timeout = deadline.Sub(time.Now())
+		}
+	}
+	if s.timeout < 0 {
+		s.timeout = 1
+	}
+	return s.Dial(network, addr)
+}
+
+// ------------------------------------------------------------------
+
 // Dial connects to the address addr on the given network via the SOCKS5 proxy.
 func (s *socks5) Dial(network, addr string) (net.Conn, error) {
 	switch network {
@@ -76,20 +94,12 @@ func (s *socks5) Dial(network, addr string) (net.Conn, error) {
 		return nil, err
 	}
 
-	err = conn.SetDeadline(time.Now().Add(s.timeout)) // add by biter
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-	err = conn.SetReadDeadline(time.Now().Add(s.timeout)) // add by biter
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-	err = conn.SetWriteDeadline(time.Now().Add(s.timeout)) // add by biter
-	if err != nil {
-		conn.Close()
-		return nil, err
+	if s.timeout > 0 {
+		err = conn.SetDeadline(time.Now().Add(s.timeout))
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
 	}
 
 	if err := s.connect(conn, addr); err != nil {

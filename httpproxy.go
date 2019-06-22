@@ -4,6 +4,7 @@ package netproxy
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -57,6 +58,21 @@ func (s *httpProxy) dialAddr() string {
 
 // ------------------------------------------------------------------
 
+// DialContext - golang.org/x/net/proxy need to add DialContext
+func (s *httpProxy) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	if ctx != nil {
+		if deadline, ok := ctx.Deadline(); ok {
+			s.timeout = deadline.Sub(time.Now())
+		}
+	}
+	if s.timeout < 0 {
+		s.timeout = 1
+	}
+	return s.Dial(network, addr)
+}
+
+// ------------------------------------------------------------------
+
 // Dial connects to the address addr on the given network via the HTTP/HTTPS proxy.
 func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
 	conn, err := s.forward.Dial(s.network, s.dialAddr())
@@ -64,20 +80,12 @@ func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
 		return nil, err
 	}
 
-	err = conn.SetDeadline(time.Now().Add(s.timeout))
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-	err = conn.SetReadDeadline(time.Now().Add(s.timeout)) 
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-	err = conn.SetWriteDeadline(time.Now().Add(s.timeout)) 
-	if err != nil {
-		conn.Close()
-		return nil, err
+	if s.timeout > 0 {
+		err = conn.SetDeadline(time.Now().Add(s.timeout))
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
 	}
 
 	if conn, err = s.connect(conn, addr); err != nil {
@@ -133,7 +141,7 @@ func HTTPProxyDialer(network, addr string, auth *Auth, forward Dialer, timeout t
 		network: network,
 		addr:    addr,
 		forward: forward,
-		timeout: timeout, 
+		timeout: timeout,
 	}
 	if auth != nil {
 		s.user = auth.User
