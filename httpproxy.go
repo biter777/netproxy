@@ -5,6 +5,7 @@ package netproxy
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
@@ -43,6 +44,16 @@ func (bc *bufferedConn) Read(b []byte) (n int, err error) {
 
 // ------------------------------------------------------------------
 
+func (s *httpProxy) auth() string {
+	a := s.user
+	if s.password != "" {
+		return a + ":" + s.password
+	}
+	return a
+}
+
+// ------------------------------------------------------------------
+
 func (s *httpProxy) dialAddr() string {
 	if s.user == "" {
 		return s.addr
@@ -75,7 +86,7 @@ func (s *httpProxy) DialContext(ctx context.Context, network, addr string) (net.
 
 // Dial connects to the address addr on the given network via the HTTP/HTTPS proxy.
 func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
-	conn, err := s.forward.Dial(s.network, s.dialAddr())
+	conn, err := s.forward.Dial(s.network, s.addr)
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +114,10 @@ func (s *httpProxy) connect(conn net.Conn, target string) (net.Conn, error) {
 		URL:    &url.URL{Opaque: target},
 		Host:   target,
 		Header: make(http.Header),
+	}
+
+	if auth := s.auth(); auth != "" {
+		connectReq.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(auth)))
 	}
 	err := connectReq.Write(conn)
 	if err != nil {

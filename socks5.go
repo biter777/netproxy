@@ -84,7 +84,7 @@ func (s *socks5) DialContext(ctx context.Context, network, addr string) (net.Con
 // Dial connects to the address addr on the given network via the SOCKS5 proxy.
 func (s *socks5) Dial(network, addr string) (net.Conn, error) {
 	switch network {
-	case "tcp", "tcp6", "tcp4":
+	case "tcp", "tcp6", "tcp4", "udp", "udp4", "udp6":
 	default:
 		return nil, errors.New("proxy: no support for SOCKS5 proxy connections of type " + network)
 	}

@@ -8,6 +8,7 @@
 package netproxy
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/url"
@@ -21,6 +22,7 @@ import (
 type Dialer interface {
 	// Dial connects to the given address via the proxy.
 	Dial(network, addr string) (net.Conn, error)
+	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
 // Auth contains authentication parameters that specific Dialers may require.
